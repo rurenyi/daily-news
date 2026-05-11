@@ -24,82 +24,54 @@
 - **biliup**：Bilibili 登录与投稿
 - **FastAPI + Jinja2 + Uvicorn**：本地 Web 管理后台
 
-## 安装
+## Ubuntu 快速开始
 
-```powershell
-python -m venv .venv
-.\.venv\Scripts\python -m pip install --upgrade pip
-.\.venv\Scripts\python -m pip install -e .
-```
-
-默认会优先复用系统已安装的 **Microsoft Edge / Google Chrome**。如果本机没有可用的 Chromium 浏览器，再额外执行：
-
-```powershell
-.\.venv\Scripts\python -m playwright install chromium
-```
-
-### Ubuntu 云端一键安装
-
-如果你在 Ubuntu 云服务器上部署，并且拥有管理员权限，直接运行：
+一键安装：
 
 ```bash
 chmod +x scripts/bootstrap-ubuntu.sh
 ./scripts/bootstrap-ubuntu.sh
 ```
 
-这个脚本会自动完成：
-
-- 安装 Python / venv / pip
-- 安装常用中文字体
-- 安装项目 Python 依赖
-- 安装 Playwright Chromium 及其 Linux 系统依赖
-- 创建运行目录
-
-完成后再执行：
+初始化配置并做一次不发布测试：
 
 ```bash
 cp config.example.json config.json
 export DASHSCOPE_API_KEY="your-api-key"
-.venv/bin/daily-news run-once --config config.json --skip-publish
+./.venv/bin/daily-news run-once --config config.json --skip-publish
 ```
 
-如果你想在 Ubuntu 上设置定时任务，可以用 `crontab`，例如每小时执行一次：
+如果本机没有可用的 Chromium 浏览器，再额外执行：
+
+```bash
+./.venv/bin/python -m playwright install chromium
+```
+
+Ubuntu 定时任务示例（每小时执行一次）：
 
 ```bash
 crontab -e
 ```
 
-加入这一行：
-
 ```cron
-0 * * * * cd /path/to/daily-news && /bin/bash -lc 'export DASHSCOPE_API_KEY="your-api-key"; .venv/bin/daily-news run-once --config config.json >> logs/cron.log 2>&1'
+0 * * * * cd /path/to/daily-news && /bin/bash -lc 'mkdir -p logs && export DASHSCOPE_API_KEY="your-api-key"; ./.venv/bin/daily-news run-once --config config.json >> logs/cron.log 2>&1'
 ```
 
-如果你希望先只验证不发布，可以把命令改成：
+仅测试不发布：
 
 ```cron
-0 * * * * cd /path/to/daily-news && /bin/bash -lc 'export DASHSCOPE_API_KEY="your-api-key"; .venv/bin/daily-news run-once --config config.json --skip-publish >> logs/cron.log 2>&1'
+0 * * * * cd /path/to/daily-news && /bin/bash -lc 'mkdir -p logs && export DASHSCOPE_API_KEY="your-api-key"; ./.venv/bin/daily-news run-once --config config.json --skip-publish >> logs/cron.log 2>&1'
 ```
 
 ## 配置
 
-复制 `config.example.json` 为你自己的配置文件，例如 `config.json`。
-
-### 配置文件初始化
-
-Windows:
-
-```powershell
-Copy-Item .\config.example.json .\config.json
-```
-
-Ubuntu / Linux:
+初始化配置文件：
 
 ```bash
 cp config.example.json config.json
 ```
 
-然后按你的实际需要修改 `config.json`，例如：
+常改的配置项：
 
 - `summarizer.provider`
 - `summarizer.model`
@@ -107,7 +79,7 @@ cp config.example.json config.json
 - `publisher.cookies_file`
 - `max_articles_per_run`
 
-`config.json` 已加入 `.gitignore`，不会默认进入仓库。
+`config.json` 已加入 `.gitignore`。
 
 ### 1. 配置摘要模型
 
@@ -116,10 +88,10 @@ cp config.example.json config.json
 - `openai_compatible`：默认走 **阿里云百炼千问兼容接口**
 - `mock`：本地烟雾测试，不调用 AI
 
-如果你使用 `openai_compatible`，需要设置环境变量：
+如果你使用 `openai_compatible`，先设置环境变量：
 
-```powershell
-$env:DASHSCOPE_API_KEY = "your-api-key"
+```bash
+export DASHSCOPE_API_KEY="your-api-key"
 ```
 
 默认示例配置已经指向：
@@ -158,8 +130,8 @@ $env:DASHSCOPE_API_KEY = "your-api-key"
 
 首次使用前先让 `biliup` 生成登录态：
 
-```powershell
-.\.venv\Scripts\biliup login
+```bash
+./.venv/bin/biliup login
 ```
 
 默认会生成 `cookies.json`。项目运行时会读取配置文件中的 `publisher.cookies_file`。
@@ -170,8 +142,8 @@ $env:DASHSCOPE_API_KEY = "your-api-key"
 
 如果你不想调用真实千问接口，先把配置里的 `summarizer.provider` 临时改成 `mock`，再执行：
 
-```powershell
-.\.venv\Scripts\daily-news run-once --config config.example.json --skip-publish
+```bash
+./.venv/bin/daily-news run-once --config config.example.json --skip-publish
 ```
 
 ### 执行完整自动上传流程
@@ -185,25 +157,25 @@ $env:DASHSCOPE_API_KEY = "your-api-key"
 
 然后执行：
 
-```powershell
-.\.venv\Scripts\daily-news run-once --config config.json
+```bash
+./.venv/bin/daily-news run-once --config config.json
 ```
 
 ## 常用命令
 
-```powershell
-.\.venv\Scripts\daily-news discover --config config.json
-.\.venv\Scripts\daily-news run-once --config config.json
-.\.venv\Scripts\daily-news list --config config.json
-.\.venv\Scripts\daily-news serve --config config.json --host 127.0.0.1 --port 8000
+```bash
+./.venv/bin/daily-news discover --config config.json
+./.venv/bin/daily-news run-once --config config.json
+./.venv/bin/daily-news list --config config.json
+./.venv/bin/daily-news serve --config config.json --host 127.0.0.1 --port 8000
 ```
 
 ## Web 管理界面
 
 启动后台：
 
-```powershell
-.\.venv\Scripts\daily-news serve --config config.json --host 127.0.0.1 --port 8000
+```bash
+./.venv/bin/daily-news serve --config config.json --host 127.0.0.1 --port 8000
 ```
 
 然后打开：
@@ -239,10 +211,10 @@ src/daily_news/
 
 ## 调度建议
 
-在 Windows 上可用“任务计划程序”定时执行：
+推荐在 Ubuntu 上用 `cron` 定时执行：
 
-```powershell
-.\.venv\Scripts\daily-news run-once --config C:\path\to\config.json
+```cron
+0 * * * * cd /path/to/daily-news && /bin/bash -lc 'export DASHSCOPE_API_KEY="your-api-key"; ./.venv/bin/daily-news run-once --config config.json >> logs/cron.log 2>&1'
 ```
 
 ## 注意事项

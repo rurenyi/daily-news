@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 from daily_news.config import PublisherConfig
@@ -13,7 +14,8 @@ from daily_news.publishers.base import Publisher
 class BiliupPublisher(Publisher):
     def __init__(self, config: PublisherConfig):
         self._config = config
-        if not shutil.which(config.binary):
+        self._binary = _resolve_biliup_binary(config.binary)
+        if self._binary is None:
             raise ValueError(
                 f"Unable to find biliup executable '{config.binary}'. "
                 "Install the package or point publisher.binary to the correct executable."
@@ -30,7 +32,7 @@ class BiliupPublisher(Publisher):
         description = self._build_description(article, summary)
         dynamic = self._config.dynamic_template.format(title=summary.headline)
         command = [
-            self._config.binary,
+            self._binary,
             "--user-cookie",
             self._config.cookies_file,
             "upload",
@@ -85,4 +87,24 @@ def _extract_bvid(output: str) -> str | None:
     match = re.search(r"\b(BV[0-9A-Za-z]{10})\b", output)
     if match:
         return match.group(1)
+    return None
+
+
+def _resolve_biliup_binary(binary: str) -> str | None:
+    direct_path = Path(binary)
+    if direct_path.exists():
+        return str(direct_path)
+
+    which_result = shutil.which(binary)
+    if which_result:
+        return which_result
+
+    executable_path = Path(sys.executable)
+    sibling_candidates = [
+        executable_path.with_name(binary),
+        executable_path.with_name(f"{binary}.exe"),
+    ]
+    for candidate in sibling_candidates:
+        if candidate.exists():
+            return str(candidate)
     return None
