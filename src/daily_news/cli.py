@@ -6,6 +6,7 @@ import json
 from daily_news.browser.playwright_capture import PlaywrightBrowserCapture
 from daily_news.config import AppConfig, load_config
 from daily_news.pipeline import DailyNewsPipeline
+from daily_news.progress import ConsoleProgressReporter
 from daily_news.publishers.base import NullPublisher
 from daily_news.publishers.biliup import BiliupPublisher
 from daily_news.sources.anthropic import AnthropicNewsSource
@@ -66,12 +67,13 @@ def main() -> None:
 
     skip_publish = args.command != "run-once" or getattr(args, "skip_publish", False)
     pipeline, store = build_pipeline(config, skip_publish=skip_publish)
+    progress = ConsoleProgressReporter()
     try:
         if args.command == "discover":
-            print(json.dumps(pipeline.discover(args.limit), ensure_ascii=False, indent=2))
+            print(json.dumps(pipeline.discover(args.limit, progress=progress), ensure_ascii=False, indent=2))
             return
         if args.command == "run-once":
-            print(json.dumps(pipeline.run_once(args.limit), ensure_ascii=False, indent=2))
+            print(json.dumps(pipeline.run_once(args.limit, progress=progress), ensure_ascii=False, indent=2))
             return
         parser.error(f"Unsupported command: {args.command}")
     finally:

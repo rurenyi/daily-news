@@ -5,6 +5,7 @@ from pathlib import Path
 
 from daily_news.config import AppConfig
 from daily_news.models import ArticleContent, DiscoveredArticle, SummaryResult
+from daily_news.progress import NullProgressReporter, ProgressReporter
 from daily_news.publishers.base import Publisher
 from daily_news.sources.base import SourceAdapter
 from daily_news.storage.sqlite_store import SqliteArticleStore
@@ -39,22 +40,29 @@ class DailyNewsPipeline:
         if hasattr(self._source, "close"):
             self._source.close()
 
-    def discover(self, limit: int | None = None) -> dict:
+    def discover(self, limit: int | None = None, progress: ProgressReporter | None = None) -> dict:
+        progress = progress or NullProgressReporter()
         limit = limit or self._config.max_articles_per_run
+        progress.discovery_started(limit)
         discovered = self._source.discover(limit)
         inserted = 0
         for article in discovered:
             inserted += int(self._store.upsert_discovery(article))
-        return {"discovered": len(discovered), "new": inserted}
+        report = {"discovered": len(discovered), "new": inserted}
+        progress.discovery_completed(report["discovered"], report["new"])
+        return report
 
-    def run_once(self, limit: int | None = None) -> dict:
-        discovery_report = self.discover(limit)
+    def run_once(self, limit: int | None = None, progress: ProgressReporter | None = None) -> dict:
+        progress = progress or NullProgressReporter()
+        discovery_report = self.discover(limit, progress=progress)
         pending = self._store.list_pending(limit or self._config.max_articles_per_run)
         processed = 0
         published = 0
         failed = 0
+        total = len(pending)
+        progress.run_started(total=total, publish_enabled=self._config.publisher.enabled)
 
-        for row in pending:
+        for index, row in enumerate(pending, start=1):
             processed += 1
             external_id = row["external_id"]
             stage = "fetch"
@@ -67,15 +75,20 @@ class DailyNewsPipeline:
                 author=row["author"],
             )
             try:
+                progress.article_stage(index, total, external_id, stage, discovered_article.title)
                 article = self._get_or_fetch_article(row, discovered_article)
                 stage = "summary"
+                progress.article_stage(index, total, external_id, stage, discovered_article.title)
                 summary = self._get_or_summarize(row, article)
                 stage = "tts"
+                progress.article_stage(index, total, external_id, stage, discovered_article.title)
                 audio_path = self._get_or_generate_audio(row, external_id, summary)
                 stage = "video"
+                progress.article_stage(index, total, external_id, stage, discovered_article.title)
                 render_result = self._get_or_render_video(row, external_id, article, summary, audio_path)
                 if self._config.publisher.enabled:
                     stage = "publish"
+                    progress.article_stage(index, total, external_id, stage, discovered_article.title)
                     publish_result = self._publisher.publish(
                         article=article,
                         summary=summary,
@@ -84,16 +97,22 @@ class DailyNewsPipeline:
                     )
                     self._store.mark_published(external_id, publish_result)
                     published += 1
+                    progress.article_finished(index, total, external_id, "published", discovered_article.title)
+                else:
+                    progress.article_finished(index, total, external_id, "video_rendered", discovered_article.title)
             except Exception as exc:  # noqa: BLE001
                 failed += 1
                 self._store.mark_failure(external_id, stage, str(exc))
-        return {
+                progress.article_failed(index, total, external_id, stage, str(exc), discovered_article.title)
+        report = {
             "discovered": discovery_report["discovered"],
             "new": discovery_report["new"],
             "processed": processed,
             "published": published,
             "failed": failed,
         }
+        progress.run_completed(report)
+        return report
 
     def _get_or_fetch_article(self, row, article: DiscoveredArticle) -> ArticleContent:
         if row["content_text"] and row["status"] not in {"discovered", "fetch_failed"}:
