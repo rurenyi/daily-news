@@ -1,0 +1,58 @@
+{
+  "database_path": "data\\daily_news.db",
+  "workspace_dir": "data",
+  "max_articles_per_run": 2,
+  "source": {
+    "name": "anthropic",
+    "listing_url": "https://www.anthropic.com/news",
+    "request_timeout_seconds": 30
+  },
+  "summarizer": {
+    "provider": "openai_compatible",
+    "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "model": "qwen-plus",
+    "api_key_env": "DASHSCOPE_API_KEY"
+  },
+  "tts": {
+    "provider": "edge",
+    "voice": "zh-CN-XiaoxiaoNeural",
+    "rate": "+0%",
+    "volume": "+0%"
+  },
+  "video": {
+    "width": 1280,
+    "height": 720,
+    "fps": 1,
+    "background_color": "#0f172a",
+    "text_color": "#f8fafc"
+  },
+  "browser": {
+    "provider": "playwright",
+    "headless": true,
+    "timeout_seconds": 45,
+    "save_html": true,
+    "save_pdf": true,
+    "save_screenshot": true,
+    "preferred_channel": "msedge",
+    "storage_state_path": null
+  },
+  "publisher": {
+    "enabled": true,
+    "binary": "biliup",
+    "cookies_file": "cookies.json",
+    "title_prefix": "Anthropic 研究速读｜",
+    "title_suffix": "",
+    "copyright": 2,
+    "source": "https://www.anthropic.com/news",
+    "tid": 171,
+    "tags": [
+      "AI",
+      "Anthropic",
+      "研究报告"
+    ],
+    "dynamic_template": "Anthropic 最新文章中文速读：{title}",
+    "submit_mode": "app",
+    "upload_line": null,
+    "concurrent_parts": 3
+  }
+}

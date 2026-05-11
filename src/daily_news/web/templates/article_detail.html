@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ article.title }} - daily-news</title>
+  <style>
+    body { font-family: "Segoe UI", Arial, sans-serif; margin: 0; background: #020617; color: #e2e8f0; }
+    .container { max-width: 1080px; margin: 0 auto; padding: 32px 20px 48px; }
+    .card { background: #111827; border: 1px solid #334155; border-radius: 16px; padding: 24px; margin-bottom: 16px; }
+    h1, h2, h3 { margin-top: 0; }
+    a { color: #93c5fd; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .meta { display: grid; gap: 8px; color: #cbd5e1; }
+    .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; background: #1e293b; border: 1px solid #475569; }
+    .content { white-space: pre-wrap; line-height: 1.7; color: #e5e7eb; }
+    ul { margin: 0; padding-left: 20px; }
+    .error { color: #fecaca; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <p><a href="{{ request.url_for('article_list') }}">← 返回列表</a></p>
+    <section class="card">
+      <h1>{{ article.title }}</h1>
+      <div class="meta">
+        <div><span class="badge">{{ article.status }}</span> {{ '已发布' if article.is_published else '未发布' }}</div>
+        <div>原文链接：<a href="{{ article.original_url }}" target="_blank" rel="noreferrer">{{ article.original_url }}</a></div>
+        {% if article.published_video_url %}
+        <div>视频链接：<a href="{{ article.published_video_url }}" target="_blank" rel="noreferrer">{{ article.published_video_url }}</a></div>
+        {% elif article.local_video_url %}
+        <div>本地视频：<a href="{{ article.local_video_url }}" target="_blank" rel="noreferrer">{{ article.local_video_url }}</a></div>
+        {% else %}
+        <div>视频链接：暂无</div>
+        {% endif %}
+        <div>更新时间：{{ article.updated_at }}</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>AI 总结</h2>
+      <p class="content">{{ article.summary or '暂无摘要' }}</p>
+      {% if article.key_points %}
+      <h3>要点</h3>
+      <ul>
+        {% for point in article.key_points %}
+        <li>{{ point }}</li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+      {% if article.script %}
+      <h3>播报稿</h3>
+      <div class="content">{{ article.script }}</div>
+      {% endif %}
+    </section>
+
+    {% if article.cover_url %}
+    <section class="card">
+      <h2>视频封面</h2>
+      <p><a href="{{ article.cover_url }}" target="_blank" rel="noreferrer">打开封面文件</a></p>
+      <img src="{{ article.cover_url }}" alt="cover" style="max-width:100%; border-radius:12px;">
+    </section>
+    {% endif %}
+
+    {% if article.last_error %}
+    <section class="card">
+      <h2>最近错误</h2>
+      <div class="error">{{ article.last_error_stage }}: {{ article.last_error }}</div>
+    </section>
+    {% endif %}
+  </div>
+</body>
+</html>

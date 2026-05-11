@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>daily-news 管理后台</title>
+  <style>
+    body { font-family: "Segoe UI", Arial, sans-serif; margin: 0; background: #0f172a; color: #e2e8f0; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 32px 20px 48px; }
+    h1 { margin: 0 0 8px; }
+    .subtitle { color: #94a3b8; margin-bottom: 24px; }
+    .grid { display: grid; gap: 16px; }
+    .card { background: #111827; border: 1px solid #334155; border-radius: 16px; padding: 20px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; color: #cbd5e1; font-size: 14px; }
+    .badge { padding: 4px 10px; border-radius: 999px; background: #1e293b; border: 1px solid #475569; }
+    .badge.ok { background: #052e16; border-color: #166534; color: #bbf7d0; }
+    .badge.pending { background: #172554; border-color: #1d4ed8; color: #bfdbfe; }
+    .badge.error { background: #450a0a; border-color: #b91c1c; color: #fecaca; }
+    a { color: #93c5fd; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .summary { color: #e2e8f0; line-height: 1.6; margin: 10px 0 0; }
+    .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; }
+    .muted { color: #94a3b8; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>daily-news 管理后台</h1>
+    <div class="subtitle">查看原始文章、AI 总结、发布状态与视频链接</div>
+    <div class="grid">
+      {% for article in articles %}
+      <section class="card">
+        <h2><a href="{{ request.url_for('article_detail', external_id=article.external_id) }}">{{ article.title }}</a></h2>
+        <div class="meta">
+          <span class="badge {% if article.is_published %}ok{% elif article.last_error %}error{% else %}pending{% endif %}">
+            {{ '已发布' if article.is_published else '未发布' }}
+          </span>
+          <span class="badge">{{ article.status }}</span>
+          <span>更新时间：{{ article.updated_at }}</span>
+        </div>
+        <div class="muted">原文：<a href="{{ article.original_url }}" target="_blank" rel="noreferrer">{{ article.original_url }}</a></div>
+        <p class="summary">{{ article.summary or '还没有生成摘要。' }}</p>
+        <div class="actions">
+          <a href="{{ request.url_for('article_detail', external_id=article.external_id) }}">查看详情</a>
+          {% if article.published_video_url %}
+          <a href="{{ article.published_video_url }}" target="_blank" rel="noreferrer">查看 Bilibili 视频</a>
+          {% endif %}
+          {% if article.local_video_url %}
+          <a href="{{ article.local_video_url }}" target="_blank" rel="noreferrer">查看本地视频</a>
+          {% endif %}
+        </div>
+      </section>
+      {% else %}
+      <section class="card">
+        <p>数据库里还没有文章记录，先运行一次抓取或流水线命令。</p>
+      </section>
+      {% endfor %}
+    </div>
+  </div>
+</body>
+</html>
