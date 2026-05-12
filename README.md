@@ -59,6 +59,12 @@ export DASHSCOPE_API_KEY="your-api-key"
 ./.venv/bin/daily-news discover --config config.json
 ```
 
+在终端查看本地记录表格：
+
+```bash
+./.venv/bin/daily-news list --config config.json
+```
+
 启动本地后台：
 
 ```bash

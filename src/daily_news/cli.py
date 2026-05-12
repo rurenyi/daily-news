@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+from collections.abc import Iterable
 
 from daily_news.browser.playwright_capture import PlaywrightBrowserCapture
 from daily_news.config import AppConfig, load_config
@@ -29,6 +30,8 @@ def build_parser() -> argparse.ArgumentParser:
             subparser.add_argument("--limit", type=int, default=None)
         if name == "run-once":
             subparser.add_argument("--skip-publish", action="store_true")
+        if name == "list":
+            subparser.add_argument("--json", action="store_true")
     serve_parser = subparsers.add_parser("serve")
     serve_parser.add_argument("--config", default="config.example.json")
     serve_parser.add_argument("--host", default="127.0.0.1")
@@ -61,7 +64,10 @@ def main() -> None:
                 }
                 for row in store.list_articles()
             ]
-            print(json.dumps(rows, ensure_ascii=False, indent=2))
+            if args.json:
+                print(json.dumps(rows, ensure_ascii=False, indent=2))
+            else:
+                print(format_article_table(rows))
             return
         finally:
             store.close()
@@ -114,6 +120,50 @@ def _build_summarizer(config: AppConfig):
     if config.summarizer.provider == "openai_compatible":
         return OpenAICompatibleSummarizer(config.summarizer)
     raise ValueError(f"Unsupported summarizer provider: {config.summarizer.provider}")
+
+
+def format_article_table(rows: Iterable[dict]) -> str:
+    data = list(rows)
+    if not data:
+        return "No local article records."
+
+    headers = {
+        "updated_at": "Updated",
+        "status": "Status",
+        "title": "Title",
+        "url": "URL",
+    }
+    max_widths = {
+        "updated_at": 25,
+        "status": 18,
+        "title": 48,
+        "url": 88,
+    }
+    columns = ["updated_at", "status", "title", "url"]
+
+    rendered_rows: list[dict[str, str]] = []
+    widths = {column: len(headers[column]) for column in columns}
+    for row in data:
+        rendered = {column: _truncate_table_value(str(row.get(column, "") or ""), max_widths[column]) for column in columns}
+        rendered_rows.append(rendered)
+        for column in columns:
+            widths[column] = max(widths[column], len(rendered[column]))
+
+    header_line = " | ".join(headers[column].ljust(widths[column]) for column in columns)
+    separator_line = "-+-".join("-" * widths[column] for column in columns)
+    body_lines = [
+        " | ".join(rendered[column].ljust(widths[column]) for column in columns)
+        for rendered in rendered_rows
+    ]
+    return "\n".join([header_line, separator_line, *body_lines])
+
+
+def _truncate_table_value(value: str, limit: int) -> str:
+    if len(value) <= limit:
+        return value
+    if limit <= 3:
+        return value[:limit]
+    return f"{value[: limit - 3]}..."
 
 
 if __name__ == "__main__":
