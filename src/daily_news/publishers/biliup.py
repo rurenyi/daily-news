@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 import re
 import shutil
 import subprocess
@@ -27,6 +28,7 @@ class BiliupPublisher(Publisher):
         summary: SummaryResult,
         video_path: Path,
         cover_path: Path,
+        status_callback: Callable[[str], None] | None = None,
     ) -> PublishResult:
         title = self._build_title(summary.headline)
         description = self._build_description(article, summary)
@@ -60,10 +62,9 @@ class BiliupPublisher(Publisher):
         ]
         if self._config.upload_line:
             command.extend(["--line", self._config.upload_line])
-        completed = subprocess.run(command, capture_output=True, text=True, check=False)
-        if completed.returncode != 0:
-            raise RuntimeError(completed.stderr.strip() or completed.stdout.strip() or "biliup upload failed")
-        output = completed.stdout.strip() or completed.stderr.strip()
+        return_code, output = _run_command_with_live_output(command, status_callback=status_callback)
+        if return_code != 0:
+            raise RuntimeError(output or "biliup upload failed")
         remote_id = _extract_bvid(output)
         remote_url = f"https://www.bilibili.com/video/{remote_id}" if remote_id else None
         return PublishResult(remote_id=remote_id, remote_url=remote_url, raw_output=output)
@@ -108,3 +109,43 @@ def _resolve_biliup_binary(binary: str) -> str | None:
         if candidate.exists():
             return str(candidate)
     return None
+
+
+def _run_command_with_live_output(
+    command: list[str],
+    status_callback: Callable[[str], None] | None = None,
+) -> tuple[int, str]:
+    process = subprocess.Popen(
+        command,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert process.stdout is not None
+
+    output_lines: list[str] = []
+    buffer = ""
+    while True:
+        chunk = process.stdout.read(1)
+        if chunk == "" and process.poll() is not None:
+            break
+        if chunk == "":
+            continue
+        if chunk in {"\r", "\n"}:
+            line = buffer.strip()
+            if line:
+                output_lines.append(line)
+                if status_callback is not None:
+                    status_callback(line)
+            buffer = ""
+            continue
+        buffer += chunk
+
+    if buffer.strip():
+        output_lines.append(buffer.strip())
+        if status_callback is not None:
+            status_callback(buffer.strip())
+
+    return process.wait(), "\n".join(output_lines).strip()

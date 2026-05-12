@@ -95,13 +95,16 @@ class DailyNewsPipeline:
                         summary=summary,
                         video_path=Path(render_result.video_path),
                         cover_path=Path(render_result.cover_path),
+                        status_callback=progress.upload_status,
                     )
+                    progress.upload_status("")
                     self._store.mark_published(external_id, publish_result)
                     published += 1
                     progress.article_finished(index, total, external_id, "published", discovered_article.title)
                 else:
                     progress.article_finished(index, total, external_id, "video_rendered", discovered_article.title)
             except Exception as exc:  # noqa: BLE001
+                progress.upload_status("")
                 failed += 1
                 self._store.mark_failure(external_id, stage, str(exc))
                 progress.article_failed(index, total, external_id, stage, str(exc), discovered_article.title)
