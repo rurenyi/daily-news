@@ -18,6 +18,8 @@ class PromptProfileTests(unittest.TestCase):
         self.assertEqual(profile, ANTHROPIC_PROMPT_PROFILE)
         self.assertIn("不要人为限制篇幅", profile.system_prompt)
         self.assertIn("翻译", profile.system_prompt)
+        self.assertIn("24 个中文字符", profile.system_prompt)
+        self.assertIn("不要使用 Markdown", profile.system_prompt)
         self.assertIn("benchmark", profile.user_instructions)
         self.assertIn("实践细节", profile.user_instructions)
         self.assertIn("不要为了控制长度而主动省略", profile.user_instructions)

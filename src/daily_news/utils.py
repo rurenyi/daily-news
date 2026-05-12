@@ -26,6 +26,20 @@ def compact_text(value: str) -> str:
     return re.sub(r"\s+", " ", value).strip()
 
 
+def strip_markdown_formatting(value: str) -> str:
+    text = value.strip()
+    text = re.sub(r"```(?:[\w+-]+)?\s*", "", text)
+    text = text.replace("```", "")
+    text = re.sub(r"^\s{0,3}#{1,6}\s*", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s{0,3}[-*+]\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"^\s{0,3}\d+\.\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"\1", text)
+    text = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", r"\1", text)
+    text = re.sub(r"[*_~`>#]+", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
 def extract_json_object(text: str) -> dict:
     candidate = text.strip()
     if candidate.startswith("```"):

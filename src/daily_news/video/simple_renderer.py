@@ -139,13 +139,13 @@ class SimpleVideoRenderer:
 
 def select_cover_text(summary: SummaryResult) -> str:
     candidate = summary.headline.strip()
-    if len(candidate) <= 48:
+    if len(candidate) <= 24:
         return candidate
     for point in summary.key_points:
         normalized = point.strip()
-        if 8 <= len(normalized) <= 48:
+        if 8 <= len(normalized) <= 24:
             return normalized
-    return candidate[:48]
+    return f"{candidate[:21]}..." if len(candidate) > 24 else candidate
 
 
 def _load_font(size: int, bold: bool) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
