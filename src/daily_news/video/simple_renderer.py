@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import os
 import re
 import subprocess
+from functools import lru_cache
 from pathlib import Path
 
 import imageio_ffmpeg
@@ -147,12 +149,67 @@ def select_cover_text(summary: SummaryResult) -> str:
 
 
 def _load_font(size: int, bold: bool) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    font_candidates = [
+    font_path = _find_font_path(bold)
+    if font_path is not None:
+        return ImageFont.truetype(font_path, size=size)
+    return ImageFont.load_default()
+
+
+@lru_cache(maxsize=2)
+def _find_font_path(bold: bool) -> str | None:
+    for font_path in _font_candidates(bold):
+        if Path(font_path).exists():
+            return font_path
+    return _fc_match_font_path(bold)
+
+
+def _font_candidates(bold: bool) -> list[str]:
+    windows_candidates = [
         "C:\\Windows\\Fonts\\msyhbd.ttc" if bold else "C:\\Windows\\Fonts\\msyh.ttc",
         "C:\\Windows\\Fonts\\simhei.ttf" if bold else "C:\\Windows\\Fonts\\simsun.ttc",
     ]
-    for font_path in font_candidates:
-        path = Path(font_path)
-        if path.exists():
-            return ImageFont.truetype(str(path), size=size)
-    return ImageFont.load_default()
+    linux_candidates = [
+        "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc" if bold else "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/opentype/noto/NotoSerifCJK-Bold.ttc" if bold else "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansCJK-Bold.ttc" if bold else "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+        "/usr/share/fonts/truetype/noto/NotoSansSC-Bold.otf" if bold else "/usr/share/fonts/truetype/noto/NotoSansSC-Regular.otf",
+        "/usr/share/fonts/opentype/noto/NotoSansSC-Bold.otf" if bold else "/usr/share/fonts/opentype/noto/NotoSansSC-Regular.otf",
+        "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
+    ]
+    macos_candidates = [
+        "/System/Library/Fonts/PingFang.ttc",
+        "/System/Library/Fonts/Hiragino Sans GB.ttc",
+        "/Library/Fonts/Arial Unicode.ttf",
+    ]
+    if os.name == "nt":
+        return windows_candidates + linux_candidates + macos_candidates
+    return linux_candidates + macos_candidates + windows_candidates
+
+
+def _fc_match_font_path(bold: bool) -> str | None:
+    style = "Bold" if bold else "Regular"
+    font_names = [
+        "Noto Sans CJK SC",
+        "Noto Sans SC",
+        "Source Han Sans SC",
+        "WenQuanYi Zen Hei",
+        "AR PL UMing CN",
+    ]
+    for font_name in font_names:
+        try:
+            completed = subprocess.run(
+                ["fc-match", f"{font_name}:style={style}", "-f", "%{file}\n"],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                check=False,
+            )
+        except FileNotFoundError:
+            return None
+        if completed.returncode != 0:
+            continue
+        font_path = completed.stdout.strip()
+        if font_path and Path(font_path).exists():
+            return font_path
+    return None

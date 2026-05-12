@@ -1,12 +1,21 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import patch
 
 from daily_news.models import SummaryResult
-from daily_news.video.simple_renderer import select_cover_text
+from daily_news.video.simple_renderer import _find_font_path, select_cover_text
 
 
 class RendererTests(unittest.TestCase):
+    def test_find_font_path_prefers_existing_linux_cjk_font(self) -> None:
+        _find_font_path.cache_clear()
+        with (
+            patch("daily_news.video.simple_renderer._font_candidates", return_value=["/fake/linux-cjk.ttf"]),
+            patch("daily_news.video.simple_renderer.Path.exists", return_value=True),
+        ):
+            self.assertEqual(_find_font_path(False), "/fake/linux-cjk.ttf")
+
     def test_select_cover_text_prefers_headline(self) -> None:
         summary = SummaryResult(
             headline="Claude Opus 4.7 发布：编程更强、视觉更清、自主性飞跃",
