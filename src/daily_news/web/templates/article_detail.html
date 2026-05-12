@@ -33,15 +33,18 @@
         {% else %}
         <div>视频链接：暂无</div>
         {% endif %}
+        {% if article.summary_text_url %}
+        <div>讲解文本：<a href="{{ article.summary_text_url }}" target="_blank" rel="noreferrer">{{ article.summary_text_url }}</a></div>
+        {% endif %}
         <div>更新时间：{{ article.updated_at }}</div>
       </div>
     </section>
 
     <section class="card">
-      <h2>AI 总结</h2>
-      <p class="content">{{ article.summary or '暂无摘要' }}</p>
+      <h2>翻译与讲解</h2>
+      <p class="content">{{ article.summary or '暂无翻译讲解' }}</p>
       {% if article.key_points %}
-      <h3>要点</h3>
+      <h3>讲解要点</h3>
       <ul>
         {% for point in article.key_points %}
         <li>{{ point }}</li>
@@ -49,7 +52,7 @@
       </ul>
       {% endif %}
       {% if article.script %}
-      <h3>播报稿</h3>
+      <h3>中文讲解稿</h3>
       <div class="content">{{ article.script }}</div>
       {% endif %}
     </section>

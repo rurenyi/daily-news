@@ -10,6 +10,7 @@ from daily_news.progress import ConsoleProgressReporter
 from daily_news.publishers.base import NullPublisher
 from daily_news.publishers.biliup import BiliupPublisher
 from daily_news.sources.anthropic import AnthropicNewsSource
+from daily_news.sources.composite import CompositeSourceAdapter
 from daily_news.storage.sqlite_store import SqliteArticleStore
 from daily_news.summarizers.mock import MockSummarizer
 from daily_news.summarizers.openai_compatible import OpenAICompatibleSummarizer
@@ -84,7 +85,7 @@ def main() -> None:
 def build_pipeline(config: AppConfig, skip_publish: bool) -> tuple[DailyNewsPipeline, SqliteArticleStore]:
     config.workspace_path.mkdir(parents=True, exist_ok=True)
     store = SqliteArticleStore(config.database_file)
-    source = AnthropicNewsSource(config.source, PlaywrightBrowserCapture(config.browser), config.workspace_path)
+    source = _build_source(config)
     summarizer = _build_summarizer(config)
     tts = EdgeTTS(config.tts)
     renderer = SimpleVideoRenderer(config.video)
@@ -92,6 +93,19 @@ def build_pipeline(config: AppConfig, skip_publish: bool) -> tuple[DailyNewsPipe
         config.publisher.enabled = False
     publisher = NullPublisher() if not config.publisher.enabled else BiliupPublisher(config.publisher)
     return DailyNewsPipeline(config, store, source, summarizer, tts, renderer, publisher), store
+
+
+def _build_source(config: AppConfig):
+    sources = []
+    for source_config in config.enabled_sources:
+        if source_config.provider != "anthropic":
+            raise ValueError(f"Unsupported source provider: {source_config.provider}")
+        sources.append(AnthropicNewsSource(source_config, PlaywrightBrowserCapture(config.browser), config.workspace_path))
+    if not sources:
+        raise ValueError("At least one source must be enabled.")
+    if len(sources) == 1:
+        return sources[0]
+    return CompositeSourceAdapter(sources)
 
 
 def _build_summarizer(config: AppConfig):

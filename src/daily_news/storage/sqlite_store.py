@@ -35,6 +35,7 @@ class SqliteArticleStore:
                 page_pdf_path TEXT,
                 page_screenshot_path TEXT,
                 summary_json TEXT,
+                summary_text_path TEXT,
                 audio_path TEXT,
                 video_path TEXT,
                 cover_path TEXT,
@@ -51,6 +52,7 @@ class SqliteArticleStore:
         self._ensure_column("articles", "page_html_path", "TEXT")
         self._ensure_column("articles", "page_pdf_path", "TEXT")
         self._ensure_column("articles", "page_screenshot_path", "TEXT")
+        self._ensure_column("articles", "summary_text_path", "TEXT")
         self._connection.commit()
 
     def _ensure_column(self, table_name: str, column_name: str, definition: str) -> None:
@@ -129,6 +131,7 @@ class SqliteArticleStore:
                 url,
                 status,
                 summary_json,
+                summary_text_path,
                 video_path,
                 cover_path,
                 published_video_id,
@@ -158,6 +161,7 @@ class SqliteArticleStore:
                 page_pdf_path,
                 page_screenshot_path,
                 summary_json,
+                summary_text_path,
                 audio_path,
                 video_path,
                 cover_path,
@@ -204,14 +208,31 @@ class SqliteArticleStore:
         )
         self._connection.commit()
 
-    def save_summary(self, external_id: str, summary: SummaryResult) -> None:
+    def save_summary(self, external_id: str, summary: SummaryResult, summary_text_path: Path | None = None) -> None:
         self._connection.execute(
             """
             UPDATE articles
-            SET summary_json = ?, status = 'summarized', last_error_stage = NULL, last_error = NULL, updated_at = ?
+            SET summary_json = ?, summary_text_path = ?, status = 'summarized',
+                last_error_stage = NULL, last_error = NULL, updated_at = ?
             WHERE external_id = ?
             """,
-            (json.dumps(summary.as_dict(), ensure_ascii=False), utc_now_iso(), external_id),
+            (
+                json.dumps(summary.as_dict(), ensure_ascii=False),
+                str(summary_text_path) if summary_text_path is not None else None,
+                utc_now_iso(),
+                external_id,
+            ),
+        )
+        self._connection.commit()
+
+    def save_summary_text_path(self, external_id: str, summary_text_path: Path) -> None:
+        self._connection.execute(
+            """
+            UPDATE articles
+            SET summary_text_path = ?, updated_at = ?
+            WHERE external_id = ?
+            """,
+            (str(summary_text_path), utc_now_iso(), external_id),
         )
         self._connection.commit()
 

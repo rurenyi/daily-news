@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from html import unescape
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
@@ -15,26 +16,33 @@ from daily_news.sources.base import SourceAdapter
 from daily_news.utils import compact_text
 
 
-def parse_listing_html(html: str, listing_url: str, source_name: str) -> list[DiscoveredArticle]:
+def parse_listing_html(
+    html: str,
+    listing_url: str,
+    source_name: str,
+    article_path_prefix: str,
+    id_prefix: str = "",
+) -> list[DiscoveredArticle]:
     soup = BeautifulSoup(html, "html.parser")
     seen: set[str] = set()
     results: list[DiscoveredArticle] = []
-    for anchor in soup.select("a[href]"):
+    for anchor in _iter_listing_anchors(soup, article_path_prefix):
         href = anchor.get("href", "").strip()
         if not href:
             continue
         full_url = urljoin(listing_url, href)
         parsed = urlparse(full_url)
-        if "/news/" not in parsed.path:
+        if article_path_prefix not in parsed.path:
             continue
         if full_url.rstrip("/") == listing_url.rstrip("/"):
             continue
         if full_url in seen:
             continue
-        title = compact_text(" ".join(anchor.stripped_strings))
+        title = _extract_listing_title(anchor)
         if len(title) < 8:
             continue
-        external_id = parsed.path.rstrip("/").split("/")[-1]
+        article_id = parsed.path.rstrip("/").split("/")[-1]
+        external_id = f"{id_prefix}{article_id}"
         seen.add(full_url)
         results.append(
             DiscoveredArticle(
@@ -45,6 +53,41 @@ def parse_listing_html(html: str, listing_url: str, source_name: str) -> list[Di
             )
         )
     return results
+
+
+def _iter_listing_anchors(soup: BeautifulSoup, article_path_prefix: str):
+    publications_anchors = _find_publications_anchors(soup, article_path_prefix)
+    if publications_anchors:
+        return publications_anchors
+    return soup.select("a[href]")
+
+
+def _find_publications_anchors(soup: BeautifulSoup, article_path_prefix: str) -> list:
+    heading = soup.find(lambda tag: compact_text(tag.get_text(" ", strip=True)).lower() == "publications")
+    if heading is None:
+        return []
+
+    section = heading.find_parent("section")
+    if section is None:
+        return []
+
+    return [
+        anchor
+        for anchor in section.select("a[href]")
+        if article_path_prefix in urlparse(urljoin("https://www.anthropic.com", anchor.get("href", ""))).path
+    ]
+
+
+def _extract_listing_title(anchor) -> str:
+    heading = anchor.select_one("h1, h2, h3, h4, h5, h6, [role='heading']")
+    if heading is not None:
+        return compact_text(" ".join(heading.stripped_strings))
+
+    text_parts = [compact_text(part) for part in anchor.stripped_strings]
+    text_parts = [part for part in text_parts if part]
+    if not text_parts:
+        return ""
+    return text_parts[-1]
 
 
 def parse_article_html(
@@ -81,6 +124,7 @@ class AnthropicNewsSource(SourceAdapter):
         self._config = config
         self._browser_capture = browser_capture
         self._capture_root = workspace_path / "captures" / config.name
+        self.name = config.name
 
     def discover(self, limit: int) -> list[DiscoveredArticle]:
         listing_capture = self._browser_capture.capture(
@@ -88,7 +132,13 @@ class AnthropicNewsSource(SourceAdapter):
             artifact_dir=self._capture_root / "_listing",
             artifact_stem="listing",
         )
-        articles = parse_listing_html(listing_capture.html, self._config.listing_url, self._config.name)
+        articles = parse_listing_html(
+            listing_capture.html,
+            self._config.listing_url,
+            self._config.name,
+            self._config.article_path_prefix,
+            self._config.id_prefix,
+        )
         return articles[:limit]
 
     def fetch(self, article: DiscoveredArticle) -> ArticleContent:
@@ -122,6 +172,10 @@ def _extract_published_at(soup: BeautifulSoup) -> str | None:
     time_tag = soup.select_one("time[datetime]")
     if time_tag and time_tag.get("datetime"):
         return time_tag["datetime"].strip()
+    page_text = compact_text(soup.get_text(" ", strip=True))
+    match = re.search(r"\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}\b", page_text)
+    if match:
+        return match.group(0)
     for script in soup.select("script[type='application/ld+json']"):
         raw = script.string or script.get_text()
         if not raw:

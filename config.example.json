@@ -2,11 +2,26 @@
   "database_path": "data\\daily_news.db",
   "workspace_dir": "data",
   "max_articles_per_run": 2,
-  "source": {
-    "name": "anthropic",
-    "listing_url": "https://www.anthropic.com/news",
-    "request_timeout_seconds": 30
-  },
+  "sources": [
+    {
+      "name": "anthropic-news",
+      "enabled": true,
+      "provider": "anthropic",
+      "listing_url": "https://www.anthropic.com/news",
+      "article_path_prefix": "/news/",
+      "id_prefix": "",
+      "request_timeout_seconds": 30
+    },
+    {
+      "name": "anthropic-research",
+      "enabled": true,
+      "provider": "anthropic",
+      "listing_url": "https://www.anthropic.com/research",
+      "article_path_prefix": "/research/",
+      "id_prefix": "research-",
+      "request_timeout_seconds": 30
+    }
+  ],
   "summarizer": {
     "provider": "openai_compatible",
     "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -40,7 +55,7 @@
     "enabled": true,
     "binary": "biliup",
     "cookies_file": "cookies.json",
-    "title_prefix": "Anthropic 研究速读｜",
+    "title_prefix": "Anthropic 文章翻译讲解｜",
     "title_suffix": "",
     "copyright": 2,
     "source": "https://www.anthropic.com/news",
@@ -50,7 +65,7 @@
       "Anthropic",
       "研究报告"
     ],
-    "dynamic_template": "Anthropic 最新文章中文速读：{title}",
+    "dynamic_template": "Anthropic 最新文章翻译讲解：{title}",
     "submit_mode": "app",
     "upload_line": null,
     "concurrent_parts": 3

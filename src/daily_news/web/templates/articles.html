@@ -26,7 +26,7 @@
 <body>
   <div class="container">
     <h1>daily-news 管理后台</h1>
-    <div class="subtitle">查看原始文章、AI 总结、发布状态与视频链接</div>
+    <div class="subtitle">查看原始文章、AI 翻译讲解、发布状态与视频链接</div>
     <div class="grid">
       {% for article in articles %}
       <section class="card">
@@ -39,7 +39,7 @@
           <span>更新时间：{{ article.updated_at }}</span>
         </div>
         <div class="muted">原文：<a href="{{ article.original_url }}" target="_blank" rel="noreferrer">{{ article.original_url }}</a></div>
-        <p class="summary">{{ article.summary or '还没有生成摘要。' }}</p>
+        <p class="summary">{{ article.summary or '还没有生成翻译讲解。' }}</p>
         <div class="actions">
           <a href="{{ request.url_for('article_detail', external_id=article.external_id) }}">查看详情</a>
           {% if article.published_video_url %}

@@ -29,6 +29,7 @@ class SqliteStoreTests(unittest.TestCase):
                     key_points=["要点1", "要点2"],
                     script="播报稿",
                 ),
+                Path("summary.txt"),
             )
             store.save_audio("sample-1", Path("audio.mp3"))
             store.save_video("sample-1", RenderResult(video_path="video.mp4", cover_path="cover.png"))
@@ -42,6 +43,7 @@ class SqliteStoreTests(unittest.TestCase):
             self.assertEqual(row["status"], "published")
             self.assertEqual(row["video_path"], "video.mp4")
             self.assertEqual(row["published_video_url"], "https://www.bilibili.com/video/BV1xx")
+            self.assertEqual(row["summary_text_path"], "summary.txt")
             store.close()
 
 

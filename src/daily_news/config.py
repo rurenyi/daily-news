@@ -7,8 +7,12 @@ from pathlib import Path
 
 @dataclass(slots=True)
 class SourceConfig:
-    name: str = "anthropic"
+    name: str = "anthropic-news"
+    enabled: bool = True
+    provider: str = "anthropic"
     listing_url: str = "https://www.anthropic.com/news"
+    article_path_prefix: str = "/news/"
+    id_prefix: str = ""
     request_timeout_seconds: int = 30
 
 
@@ -54,13 +58,13 @@ class PublisherConfig:
     enabled: bool = True
     binary: str = "biliup"
     cookies_file: str = "cookies.json"
-    title_prefix: str = "Anthropic 研究速读｜"
+    title_prefix: str = "Anthropic 文章翻译讲解｜"
     title_suffix: str = ""
     copyright: int = 2
     source: str = "https://www.anthropic.com/news"
     tid: int = 171
     tags: list[str] = field(default_factory=lambda: ["AI", "Anthropic", "研究报告"])
-    dynamic_template: str = "Anthropic 最新文章中文速读：{title}"
+    dynamic_template: str = "Anthropic 最新文章翻译讲解：{title}"
     submit_mode: str = "app"
     upload_line: str | None = None
     concurrent_parts: int = 3
@@ -71,7 +75,7 @@ class AppConfig:
     database_path: str = "data\\daily_news.db"
     workspace_dir: str = "data"
     max_articles_per_run: int = 2
-    source: SourceConfig = field(default_factory=SourceConfig)
+    sources: list[SourceConfig] = field(default_factory=lambda: [SourceConfig()])
     summarizer: SummarizerConfig = field(default_factory=SummarizerConfig)
     tts: TTSConfig = field(default_factory=TTSConfig)
     video: VideoConfig = field(default_factory=VideoConfig)
@@ -86,10 +90,28 @@ class AppConfig:
     def workspace_path(self) -> Path:
         return Path(self.workspace_dir)
 
+    @property
+    def enabled_sources(self) -> list[SourceConfig]:
+        return [source for source in self.sources if source.enabled]
+
+    @property
+    def source(self) -> SourceConfig:
+        if not self.sources:
+            raise ValueError("At least one source must be configured.")
+        return self.sources[0]
+
 
 def _merge_dataclass(cls, payload: dict | None):
     payload = payload or {}
     return cls(**payload)
+
+
+def _load_sources(payload: dict) -> list[SourceConfig]:
+    raw_sources = payload.get("sources")
+    if isinstance(raw_sources, list) and raw_sources:
+        return [_merge_dataclass(SourceConfig, item) for item in raw_sources]
+    legacy_source = payload.get("source")
+    return [_merge_dataclass(SourceConfig, legacy_source)]
 
 
 def load_config(path: str | Path) -> AppConfig:
@@ -100,7 +122,7 @@ def load_config(path: str | Path) -> AppConfig:
         database_path=payload.get("database_path", "data\\daily_news.db"),
         workspace_dir=payload.get("workspace_dir", "data"),
         max_articles_per_run=payload.get("max_articles_per_run", 2),
-        source=_merge_dataclass(SourceConfig, payload.get("source")),
+        sources=_load_sources(payload),
         summarizer=_merge_dataclass(SummarizerConfig, payload.get("summarizer")),
         tts=_merge_dataclass(TTSConfig, payload.get("tts")),
         video=_merge_dataclass(VideoConfig, payload.get("video")),

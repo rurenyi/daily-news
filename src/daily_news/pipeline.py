@@ -11,7 +11,7 @@ from daily_news.sources.base import SourceAdapter
 from daily_news.storage.sqlite_store import SqliteArticleStore
 from daily_news.summarizers.base import Summarizer
 from daily_news.tts.base import TextToSpeech
-from daily_news.utils import slugify
+from daily_news.utils import ensure_parent, slugify
 from daily_news.video.simple_renderer import SimpleVideoRenderer
 
 
@@ -34,6 +34,7 @@ class DailyNewsPipeline:
         self._renderer = renderer
         self._publisher = publisher
         self._audio_dir = config.workspace_path / "audio"
+        self._summary_dir = config.workspace_path / "summary"
         self._video_dir = config.workspace_path / "video"
 
     def close(self) -> None:
@@ -123,6 +124,16 @@ class DailyNewsPipeline:
 
     def _get_or_summarize(self, row, article: ArticleContent) -> SummaryResult:
         if row["summary_json"] and row["status"] not in {"fetched", "summary_failed", "discovered", "fetch_failed"}:
+            if not row["summary_text_path"]:
+                payload = json.loads(row["summary_json"])
+                summary = SummaryResult(
+                    headline=payload["headline"],
+                    summary=payload["summary"],
+                    key_points=list(payload["key_points"]),
+                    script=payload["script"],
+                )
+                summary_text_path = self._write_summary_text(article.article.external_id, summary)
+                self._store.save_summary_text_path(article.article.external_id, summary_text_path)
             payload = json.loads(row["summary_json"])
             return SummaryResult(
                 headline=payload["headline"],
@@ -131,8 +142,28 @@ class DailyNewsPipeline:
                 script=payload["script"],
             )
         summary = self._summarizer.summarize(article)
-        self._store.save_summary(article.article.external_id, summary)
+        summary_text_path = self._write_summary_text(article.article.external_id, summary)
+        self._store.save_summary(article.article.external_id, summary, summary_text_path)
         return summary
+
+    def _write_summary_text(self, external_id: str, summary: SummaryResult) -> Path:
+        output_path = self._summary_dir / f"{external_id}-{slugify(summary.headline)}.txt"
+        ensure_parent(output_path)
+        lines = [
+            f"标题：{summary.headline}",
+            "",
+            "翻译与讲解：",
+            summary.summary,
+            "",
+            "讲解要点：",
+            *[f"- {point}" for point in summary.key_points],
+            "",
+            "中文讲解稿：",
+            summary.script,
+            "",
+        ]
+        output_path.write_text("\n".join(lines), encoding="utf-8")
+        return output_path
 
     def _get_or_generate_audio(self, row, external_id: str, summary: SummaryResult) -> Path:
         if row["audio_path"] and row["status"] not in {"summarized", "tts_failed", "fetched", "summary_failed"}:

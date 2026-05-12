@@ -71,6 +71,17 @@ def create_app(config: AppConfig) -> FastAPI:
             raise HTTPException(status_code=404, detail="Cover artifact missing on disk")
         return FileResponse(cover_path, media_type="image/png", filename=cover_path.name)
 
+    @app.get("/artifacts/{external_id}/summary")
+    def article_summary_text(external_id: str):
+        with _store_context(config) as store:
+            row = store.get_for_admin(external_id)
+        if row is None or not row["summary_text_path"]:
+            raise HTTPException(status_code=404, detail="Summary artifact not found")
+        summary_path = Path(row["summary_text_path"])
+        if not summary_path.exists():
+            raise HTTPException(status_code=404, detail="Summary artifact missing on disk")
+        return FileResponse(summary_path, media_type="text/plain; charset=utf-8", filename=summary_path.name)
+
     return app
 
 
@@ -92,10 +103,13 @@ def _row_to_view_model(request: Request, row, include_full_content: bool = False
     summary = _parse_summary(row["summary_json"])
     local_video_url = None
     cover_url = None
+    summary_text_url = None
     if row["video_path"]:
         local_video_url = str(request.url_for("article_video", external_id=row["external_id"]))
     if row["cover_path"]:
         cover_url = str(request.url_for("article_cover", external_id=row["external_id"]))
+    if row["summary_text_path"]:
+        summary_text_url = str(request.url_for("article_summary_text", external_id=row["external_id"]))
     return {
         "external_id": row["external_id"],
         "title": row["title"],
@@ -115,6 +129,7 @@ def _row_to_view_model(request: Request, row, include_full_content: bool = False
         "published_video_url": row["published_video_url"],
         "local_video_url": local_video_url,
         "cover_url": cover_url,
+        "summary_text_url": summary_text_url,
         "last_error_stage": row["last_error_stage"],
         "last_error": row["last_error"],
         "updated_at": row["updated_at"],

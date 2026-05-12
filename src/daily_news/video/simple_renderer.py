@@ -76,7 +76,7 @@ class SimpleVideoRenderer:
         title_font = _load_font(64, bold=True)
         footer_font = _load_font(22, bold=False)
 
-        draw.text((104, 108), "Anthropic 中文速读", fill="#93c5fd", font=badge_font)
+        draw.text((104, 108), "Anthropic 翻译讲解", fill="#93c5fd", font=badge_font)
 
         display_text = select_cover_text(summary)
         title_lines = wrap_text(display_text, 16)[:4]
