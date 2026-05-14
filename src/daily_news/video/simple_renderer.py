@@ -13,6 +13,8 @@ from daily_news.config import VideoConfig
 from daily_news.models import RenderResult, SummaryResult
 from daily_news.utils import ensure_parent, wrap_text
 
+VIDEO_END_PADDING_SECONDS = 2.0
+
 
 class SimpleVideoRenderer:
     def __init__(self, config: VideoConfig):
@@ -32,6 +34,7 @@ class SimpleVideoRenderer:
         trimmed_audio_path = output_path.with_suffix(".audio.m4a")
         self._trim_audio(ffmpeg, audio_path, trimmed_audio_path)
         audio_duration = self._probe_duration(ffmpeg, trimmed_audio_path)
+        video_duration = audio_duration + VIDEO_END_PADDING_SECONDS
         command = [
             ffmpeg,
             "-y",
@@ -44,7 +47,7 @@ class SimpleVideoRenderer:
             "-i",
             str(trimmed_audio_path),
             "-t",
-            f"{audio_duration:.3f}",
+            f"{video_duration:.3f}",
             "-c:v",
             "libx264",
             "-tune",
@@ -55,7 +58,6 @@ class SimpleVideoRenderer:
             "192k",
             "-pix_fmt",
             "yuv420p",
-            "-shortest",
             str(output_path),
         ]
         try:

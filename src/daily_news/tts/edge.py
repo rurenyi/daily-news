@@ -12,7 +12,7 @@ import edge_tts.voices as edge_voices
 
 from daily_news.config import TTSConfig
 from daily_news.tts.base import TextToSpeech
-from daily_news.utils import ensure_parent, httpx_verify_context, strip_markdown_formatting
+from daily_news.utils import ensure_parent, expand_acronyms_for_tts, httpx_verify_context, strip_markdown_formatting
 
 
 class EdgeTTS(TextToSpeech):
@@ -22,6 +22,7 @@ class EdgeTTS(TextToSpeech):
     def synthesize(self, text: str, output_path: Path) -> None:
         ensure_parent(output_path)
         text = strip_markdown_formatting(text)
+        text = expand_acronyms_for_tts(text)
         try:
             asyncio.get_running_loop()
         except RuntimeError:

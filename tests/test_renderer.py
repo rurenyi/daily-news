@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
+from daily_news.config import VideoConfig
 from daily_news.models import SummaryResult
-from daily_news.video.simple_renderer import _find_font_path, select_cover_text
+from daily_news.video.simple_renderer import VIDEO_END_PADDING_SECONDS, SimpleVideoRenderer, _find_font_path, select_cover_text
 
 
 class RendererTests(unittest.TestCase):
@@ -42,6 +44,29 @@ class RendererTests(unittest.TestCase):
             script="脚本",
         )
         self.assertEqual(select_cover_text(summary), "模型编程能力显著增强")
+
+    def test_render_extends_video_duration_by_two_seconds(self) -> None:
+        renderer = SimpleVideoRenderer(VideoConfig())
+        summary = SummaryResult(headline="标题", summary="摘要", key_points=["要点"], script="脚本")
+
+        with (
+            patch.object(renderer, "_create_cover"),
+            patch.object(renderer, "_trim_audio"),
+            patch.object(renderer, "_probe_duration", return_value=12.5),
+            patch("daily_news.video.simple_renderer.imageio_ffmpeg.get_ffmpeg_exe", return_value="ffmpeg"),
+            patch("daily_news.video.simple_renderer.subprocess.run") as run_mock,
+            patch("daily_news.video.simple_renderer.Path.exists", return_value=False),
+        ):
+            run_mock.return_value.returncode = 0
+            run_mock.return_value.stderr = ""
+            run_mock.return_value.stdout = ""
+
+            renderer.render(summary, "https://example.com", Path("audio.mp3"), Path("video.mp4"))
+
+        command = run_mock.call_args[0][0]
+        t_index = command.index("-t")
+        self.assertEqual(command[t_index + 1], f"{12.5 + VIDEO_END_PADDING_SECONDS:.3f}")
+        self.assertNotIn("-shortest", command)
 
 
 if __name__ == "__main__":
