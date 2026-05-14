@@ -40,6 +40,14 @@ def strip_markdown_formatting(value: str) -> str:
     return text.strip()
 
 
+def expand_acronyms_for_tts(value: str) -> str:
+    def replacer(match: re.Match[str]) -> str:
+        acronym = match.group(1)
+        return " ".join(acronym)
+
+    return re.sub(r"(?<![A-Za-z])([A-Z]{2,8})(?![A-Za-z])", replacer, value)
+
+
 def extract_json_object(text: str) -> dict:
     candidate = text.strip()
     if candidate.startswith("```"):
