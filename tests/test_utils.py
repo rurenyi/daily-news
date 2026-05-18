@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from daily_news.utils import expand_acronyms_for_tts, extract_json_object, strip_markdown_formatting
+from daily_news.utils import expand_acronyms_for_tts, extract_json_object, split_text_for_tts, strip_markdown_formatting
 
 
 class UtilsTests(unittest.TestCase):
@@ -21,6 +21,18 @@ class UtilsTests(unittest.TestCase):
     def test_expand_acronyms_for_tts_spells_uppercase_tokens(self) -> None:
         text = "TAI 和 API 都需要单独读字母，但 Claude 不需要。"
         self.assertEqual(expand_acronyms_for_tts(text), "T A I 和 A P I 都需要单独读字母，但 Claude 不需要。")
+
+    def test_split_text_for_tts_prefers_larger_paragraph_chunks(self) -> None:
+        text = ("第一段内容。" * 80) + "\n\n" + ("第二段内容。" * 70) + "\n\n" + ("第三段内容。" * 60)
+        chunks = split_text_for_tts(text, target_chars=120, hard_max_chars=180)
+        self.assertLessEqual(len(chunks), 8)
+        self.assertTrue(all(len(chunk) <= 180 for chunk in chunks))
+
+    def test_split_text_for_tts_splits_long_paragraph_without_overfragmenting(self) -> None:
+        text = "这是一个很长的段落，" * 120 + "结束。"
+        chunks = split_text_for_tts(text, target_chars=120, hard_max_chars=180)
+        self.assertGreater(len(chunks), 1)
+        self.assertTrue(all(len(chunk) <= 180 for chunk in chunks))
 
 
 if __name__ == "__main__":
