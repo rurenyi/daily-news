@@ -47,3 +47,17 @@ class ConsoleProgressReporterTests(unittest.TestCase):
         output = stream.getvalue()
         self.assertGreaterEqual(output.count("\r"), 3)
         self.assertTrue(output.endswith("\n"))
+
+    def test_interactive_stream_keeps_failure_message_visible(self) -> None:
+        stream = InteractiveStringIO()
+        reporter = ConsoleProgressReporter(stream=stream, bar_width=5)
+
+        reporter.run_started(total=1, publish_enabled=False)
+        reporter.article_stage(1, 1, "article-1", "tts", "Title")
+        reporter.article_failed(1, 1, "article-1", "tts", "Edge TTS failed with some detailed error", "Title")
+        reporter.run_completed({"discovered": 1, "new": 0, "processed": 1, "published": 0, "failed": 1})
+
+        output = stream.getvalue()
+        self.assertIn("failed at tts", output)
+        self.assertIn("Edge TTS failed", output)
+        self.assertIn("[run] done | discovered=1 new=0 processed=1 published=0 failed=1", output)

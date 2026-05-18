@@ -90,15 +90,17 @@ class ConsoleProgressReporter:
 
     def article_failed(self, index: int, total: int, external_id: str, stage: str, error: str, title: str) -> None:
         label = self._format_prefix(index, total)
-        self._emit(
-            f"{label} {external_id} -> failed at {stage} | {self._truncate(title, 60)} | {self._truncate(error, 80)}"
-        )
+        message = f"{label} {external_id} -> failed at {stage} | {self._truncate(title, 60)} | {self._truncate(error, 160)}"
+        if self._interactive:
+            self._emit_persistent(message)
+            return
+        self._emit(message)
 
     def upload_status(self, message: str) -> None:
         if not self._interactive:
             return
         self._status_message = self._truncate(message.strip(), 120)
-        self._dual_line_mode = True
+        self._dual_line_mode = bool(self._status_message)
         self._render_interactive(finalize=False)
 
     def run_completed(self, report: dict) -> None:
@@ -123,6 +125,25 @@ class ConsoleProgressReporter:
         self.stream.write(f"{message}\n")
         self.stream.flush()
 
+    def _emit_persistent(self, message: str) -> None:
+        if self._interactive and self._active_line:
+            if self._dual_line_mode:
+                self.stream.write("\r\x1b[1A\x1b[2K")
+                self.stream.write(f"{self._main_message.ljust(self._last_line_length)}\n")
+                self.stream.write("\x1b[2K")
+                if self._status_message:
+                    self.stream.write(f"\x1b[90m{self._status_message.ljust(self._status_line_length)}\x1b[0m")
+                self.stream.write("\n")
+            else:
+                self.stream.write(f"\r{self._main_message.ljust(self._last_line_length)}\n")
+            self._active_line = False
+            self._last_line_length = 0
+            self._status_line_length = 0
+            self._dual_line_mode = False
+            self._status_message = ""
+        self.stream.write(f"{message}\n")
+        self.stream.flush()
+
     def _render_interactive(self, finalize: bool) -> None:
         if self._dual_line_mode:
             if self._active_line:
@@ -144,6 +165,7 @@ class ConsoleProgressReporter:
                 self._active_line = False
                 self._last_line_length = 0
                 self._status_line_length = 0
+                self._dual_line_mode = False
                 self._status_message = ""
             return
 
