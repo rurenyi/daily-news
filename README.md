@@ -18,6 +18,14 @@ chmod +x scripts/bootstrap-ubuntu.sh
 ./scripts/bootstrap-ubuntu.sh
 ```
 
+### Windows 快速开始
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -e .
+```
+
 ### 初始化配置
 
 ```bash
