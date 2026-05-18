@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import os
+import tempfile
 import threading
 from pathlib import Path
 
@@ -12,7 +13,13 @@ import edge_tts.voices as edge_voices
 
 from daily_news.config import TTSConfig
 from daily_news.tts.base import TextToSpeech
-from daily_news.utils import ensure_parent, expand_acronyms_for_tts, httpx_verify_context, strip_markdown_formatting
+from daily_news.utils import (
+    ensure_parent,
+    expand_acronyms_for_tts,
+    httpx_verify_context,
+    split_text_for_tts,
+    strip_markdown_formatting,
+)
 
 
 class EdgeTTS(TextToSpeech):
@@ -45,10 +52,31 @@ class EdgeTTS(TextToSpeech):
             raise error
 
     async def _save(self, text: str, output_path: Path) -> None:
+        chunks = split_text_for_tts(text)
+        if not chunks:
+            raise ValueError("TTS input text was empty after preprocessing.")
         ssl_context = httpx_verify_context()
         edge_communicate._SSL_CTX = ssl_context
         edge_voices._SSL_CTX = ssl_context
         connector = aiohttp.TCPConnector(ssl=ssl_context)
+        try:
+            if len(chunks) == 1:
+                await self._save_chunk(chunks[0], output_path, connector)
+                return
+
+            with tempfile.TemporaryDirectory() as temp_dir:
+                part_paths: list[Path] = []
+                for index, chunk in enumerate(chunks, start=1):
+                    part_path = Path(temp_dir) / f"part-{index:03d}.mp3"
+                    await self._save_chunk(chunk, part_path, connector)
+                    part_paths.append(part_path)
+                with output_path.open("wb") as merged:
+                    for part_path in part_paths:
+                        merged.write(part_path.read_bytes())
+        finally:
+            await connector.close()
+
+    async def _save_chunk(self, text: str, output_path: Path, connector: aiohttp.TCPConnector) -> None:
         communicator = edge_tts.Communicate(
             text=text,
             voice=self._config.voice,
@@ -57,7 +85,4 @@ class EdgeTTS(TextToSpeech):
             connector=connector,
             proxy=os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY"),
         )
-        try:
-            await communicator.save(str(output_path))
-        finally:
-            await connector.close()
+        await communicator.save(str(output_path))
