@@ -58,31 +58,31 @@ class EdgeTTS(TextToSpeech):
         ssl_context = httpx_verify_context()
         edge_communicate._SSL_CTX = ssl_context
         edge_voices._SSL_CTX = ssl_context
+        if len(chunks) == 1:
+            await self._save_chunk(chunks[0], output_path, ssl_context)
+            return
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            part_paths: list[Path] = []
+            for index, chunk in enumerate(chunks, start=1):
+                part_path = Path(temp_dir) / f"part-{index:03d}.mp3"
+                await self._save_chunk(chunk, part_path, ssl_context)
+                part_paths.append(part_path)
+            with output_path.open("wb") as merged:
+                for part_path in part_paths:
+                    merged.write(part_path.read_bytes())
+
+    async def _save_chunk(self, text: str, output_path: Path, ssl_context) -> None:
         connector = aiohttp.TCPConnector(ssl=ssl_context)
         try:
-            if len(chunks) == 1:
-                await self._save_chunk(chunks[0], output_path, connector)
-                return
-
-            with tempfile.TemporaryDirectory() as temp_dir:
-                part_paths: list[Path] = []
-                for index, chunk in enumerate(chunks, start=1):
-                    part_path = Path(temp_dir) / f"part-{index:03d}.mp3"
-                    await self._save_chunk(chunk, part_path, connector)
-                    part_paths.append(part_path)
-                with output_path.open("wb") as merged:
-                    for part_path in part_paths:
-                        merged.write(part_path.read_bytes())
+            communicator = edge_tts.Communicate(
+                text=text,
+                voice=self._config.voice,
+                rate=self._config.rate,
+                volume=self._config.volume,
+                connector=connector,
+                proxy=os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY"),
+            )
+            await communicator.save(str(output_path))
         finally:
             await connector.close()
-
-    async def _save_chunk(self, text: str, output_path: Path, connector: aiohttp.TCPConnector) -> None:
-        communicator = edge_tts.Communicate(
-            text=text,
-            voice=self._config.voice,
-            rate=self._config.rate,
-            volume=self._config.volume,
-            connector=connector,
-            proxy=os.environ.get("HTTPS_PROXY") or os.environ.get("HTTP_PROXY"),
-        )
-        await communicator.save(str(output_path))
